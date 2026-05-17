@@ -61,7 +61,7 @@ pub enum QnRoleHint {
     Both,
 }
 
-/// Config-echo (spec §8 `config`) with x-tokens redacted.
+/// Config-echo (the output JSON schema `config`) with x-tokens redacted.
 //
 // Mirrors `Config` and inherits the same independent-toggle bools.
 #[allow(clippy::struct_excessive_bools)]
@@ -151,7 +151,7 @@ pub struct RunMetadata {
     pub dropped_events_ep2: u64,
 }
 
-/// Per-endpoint capture / capability info (spec §8 `endpoints`).
+/// Per-endpoint capture / capability info (the output JSON schema `endpoints`).
 #[derive(Debug, Clone, Serialize)]
 pub struct EndpointInfo {
     /// URL.
@@ -162,7 +162,7 @@ pub struct EndpointInfo {
     pub plugin_type: String,
     /// Plugin version reported by `GetVersion`.
     pub plugin_version: String,
-    /// TCP-level RTT in ms, averaged across the run's pings (spec §6.5).
+    /// TCP-level RTT in ms, averaged across the run's pings (ping metric).
     pub avg_ping_ms: f64,
     /// Total event count across all streams on this endpoint.
     pub total_updates: u64,
@@ -208,13 +208,13 @@ pub struct RunOutput {
     pub metadata: RunMetadata,
     /// Per-endpoint capability/capture info.
     pub endpoints: Vec<EndpointInfo>,
-    /// Comparative latencies (spec §6.1).
+    /// Comparative latencies ().
     pub comparative: ComparativeSummary,
     /// Per-program account latency buckets (spec §6.2).
     pub per_program_account_delay: PerProgramSummary,
-    /// Cross-stream ordering within each endpoint (spec §6.3).
+    /// Cross-stream ordering within each endpoint ().
     pub cross_stream: HashMap<&'static str, CrossStreamSummary>,
-    /// Stream stability per endpoint (spec §6.4).
+    /// Stream stability per endpoint ().
     pub stability: HashMap<&'static str, StabilitySummary>,
 }
 

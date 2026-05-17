@@ -28,10 +28,10 @@ All grpc-bench measurements presented here used:
 - Single per-program sub-subscription topology
   (`--accounts-programs-per-filter 1`) for measurement-optimized
   per-program numbers. Higher chunk sizes are used when an endpoint's
-  concurrent-stream tier cap is reached (see [`RUNBOOK.md`](./RUNBOOK.md)
-  §1 "Endpoint stream caps"); the `KNOWN_HEAVY_PROGRAMS` always-split
-  logic keeps the heavy programs individually measurable at any chunk
-  size.
+  concurrent-stream tier cap is reached (see
+  [RUNBOOK — Endpoint stream caps](./RUNBOOK.md#endpoint-stream-caps-eg-qn-tiers-cap-at-25));
+  the `KNOWN_HEAVY_PROGRAMS` always-split logic keeps the heavy
+  programs individually measurable at any chunk size.
 - Linux host with `performance` governor, `madvise` THP,
   jemalloc warm-start, and `setcap cap_sys_nice=eip` on the binary so
   `--realtime` can attach `SCHED_FIFO 50` without root.
@@ -42,7 +42,7 @@ All grpc-bench measurements presented here used:
 All comparative latency numbers are `(ep2_arrival − ep1_arrival)` in
 milliseconds. Positive = ep1 was faster (`ep1_faster` counter
 increments). t-digest compression factor is 100 (sub-1% quantile
-error on uniform inputs, comfortably within spec §10's "p99 within
+error on uniform inputs, comfortably within the manual validation runs's "p99 within
 1% of true p99" target).
 
 ---
@@ -62,16 +62,15 @@ to avoid customer-identifying URL leakage.
 | DO 32-vCPU G-class (Xeon Platinum 8168 @ 2.70 GHz, single NUMA, NYC3) | All v40 validation runs in this history | Current reference rig; the binary's v1 ship-ready validation numbers come from here |
 | Customer's AWS rig (~64 vCPU) | Pending | Not yet measured by us; expected to clear most ceilings the DO G-class hits |
 
-macOS-based development is supported for code iteration but cannot
-produce defensible sub-10 ms numbers (no `sched_setaffinity`, no
-`SCHED_FIFO`, no `jemalloc` warm-start on the same posture). See
-[`PRECISION.md`](./PRECISION.md) for the full design rationale.
+All numbers in this history are from Linux rigs.
+[`MACOS.md`](./MACOS.md) documents the dev-host posture for anyone
+iterating on code; macOS measurements are not used in this document.
 
 ---
 
 ## Cross-validation against `rpcpool/yellowstone-thorofare`
 
-Spec §9.4 (the publishable agreement criterion). gRPC-bench and
+Thorofare agreement criterion (the publishable agreement criterion). gRPC-bench and
 thorofare 0.5.0 were run **simultaneously** against the same two
 endpoints in the same time window. gRPC-bench was constrained to a
 single-program filter (pump.fun) to match thorofare's
@@ -198,7 +197,7 @@ chunk = 1, `--realtime`):
 | 23p dual-cmt, accounts only | 36% / 37% |
 
 The dual-cmt configs on this rig class are dispatcher-CPU-bound.
-The harness clears the spec §9.3 ±0.1% parity criterion on all
+The harness clears the ±0.1% parity criterion on all
 non-saturated workloads (single-cmt + tx, single-cmt + blocks,
 pumpfun-only); on the saturated dual-cmt configs, parity holds
 between endpoints but the magnitude is reduced because the same
@@ -273,7 +272,7 @@ v39 and v40 are both at-ceiling for this rig.
 
 Same workload as the v40a/b 1000-slot runs but extended to a
 60-minute duration to characterize behavior under sustained load
-(spec §7's "bound memory at all times" invariant + tail-latency
+(the bounded-memory invariant's "bound memory at all times" invariant + tail-latency
 behavior at high event counts).
 
 **Configuration:** 23p × processed × tx × `--realtime` × chunk=1 ×
@@ -364,7 +363,7 @@ read.
 |---|---|
 | Customer-rig characterization on AWS 64-vCPU | Pending. The DO 32-vCPU G-class data above is rig-sizing characterization; the customer's silicon should clear most ceilings the G-class hit. |
 | Dual-commitment v40 head-to-head capture number | Pending direct measurement. v40 dual-cmt verified to run cleanly under chunk=4 on a 25-stream-cap tier; v39-era projection was ~67% on this rig class for the same workload, and Patch 1 specifically attacks the dispatcher CPU constraint that produced that ceiling. |
-| 24-hour soak | Not run. The 1-hour soak is sufficient to validate spec §7 bounded memory and surface meteora_dlmm-class tails; 24-hour would primarily exercise endpoint-side reliability over an operational day, which is a customer-rig concern. |
+| 24-hour soak | Not run. The 1-hour soak is sufficient to validate the bounded-memory invariant bounded memory and surface meteora_dlmm-class tails; 24-hour would primarily exercise endpoint-side reliability over an operational day, which is a customer-rig concern. |
 | `SO_TIMESTAMPNS` wire-up | Deferred to v2. Primitives in `src/timing/kernel_ts.rs`; tonic transport integration is days of work. Would close the residual ~3 ms standalone-vs-parallel gap and make sub-10 ms p50 claims rigorously defensible — useful but not load-bearing for v1. |
 | Per-stream-kind dispatcher refactor | Deferred to v2. Would lift the 2-dispatcher-thread ceiling on heavy dual-cmt workloads. Not needed for single-cmt + tx, which already clears 99%+ at v40. |
 | `entries_vs_*` cross-stream metrics | Deferred to v2 behind feature flag. Requires QN-specific proto extension; tx_vs_account is fully populated in v1. |

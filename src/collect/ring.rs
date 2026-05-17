@@ -1,5 +1,5 @@
 //! Lock-free SPSC ring used to pass [`Event`] records from a receiver
-//! task to its matching/ingest thread (spec §7).
+//! task to its matching/ingest thread (the bounded-memory invariant).
 //!
 //! Built on `crossbeam_channel::bounded(N)`, which preallocates N slots
 //! at construction and performs no allocation on send/recv. We restrict
@@ -7,7 +7,7 @@
 //! channel API allows MPMC but we don't need it and the SPSC discipline
 //! is what the spec calls for.
 //!
-//! Spec §7: "If the ring fills, drop events and increment a
+//! The bounded-memory invariant: "If the ring fills, drop events and increment a
 //! `dropped_events` counter — never block the receiver to allocate more."
 //! [`EventSender::send`] embodies this: it never blocks, and on overflow
 //! it bumps an atomic counter and returns `false`.
@@ -111,7 +111,7 @@ impl Ring {
     ///
     /// Capacity must be > 0; capacity 0 is the rendezvous channel which
     /// would block the receiver (defeating the "never block" rule from
-    /// spec §7). The function panics on capacity 0 as a startup-time
+    /// the bounded-memory invariant). The function panics on capacity 0 as a startup-time
     /// invariant; capacity selection lives at a higher level and is not
     /// runtime data.
     ///
@@ -120,7 +120,7 @@ impl Ring {
     /// startup, not user input.
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        assert!(capacity > 0, "ring capacity must be > 0 (spec §7)");
+        assert!(capacity > 0, "ring capacity must be > 0 (the bounded-memory invariant)");
         let (tx, rx) = bounded::<Event>(capacity);
         let stats = ReceiverStats::new();
         Self {

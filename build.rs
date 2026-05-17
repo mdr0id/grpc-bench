@@ -1,7 +1,7 @@
 //! Captures the resolved yellowstone-grpc-proto and yellowstone-grpc-client
 //! versions from `Cargo.lock` and exposes them to the crate as build-time
 //! environment variables. Read at runtime via `env!()` and reported in the
-//! `proto_metadata` section of the output JSON (spec §8, §12.A).
+//! `proto_metadata` section of the output JSON (the output JSON schema, the proto policy).
 
 use std::fs;
 

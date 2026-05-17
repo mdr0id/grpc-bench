@@ -74,7 +74,7 @@ use crate::{
 };
 
 /// Per-stream ring capacity default. Sized for several seconds of
-/// slot-stream burst on a fast endpoint without dropping. Spec §7: drop
+/// slot-stream burst on a fast endpoint without dropping. The bounded-memory invariant: drop
 /// on overflow rather than block the receiver. Operators can override
 /// via `--ring-capacity` when running tier-heavy filter sets (23
 /// programs + `--with-blocks` benefit from larger rings on un-pinned
@@ -139,7 +139,7 @@ pub fn ring_capacity_for(role: SubscriptionRole, baseline: usize) -> usize {
     (baseline.saturating_mul(mul_num) / mul_den.max(1)).max(1)
 }
 
-/// Periodic snapshot tick (spec §7 "Periodically (every 10s) snapshots
+/// Periodic snapshot tick (the bounded-memory invariant "Periodically (every 10s) snapshots
 /// current quantile estimates").
 pub const SNAPSHOT_TICK: Duration = Duration::from_secs(10);
 
@@ -209,10 +209,10 @@ struct IngestCountersPartial {
     last_counted_slot: u64,
 }
 
-/// Per-endpoint TCP/gRPC round-trip latency tracker (spec §6.5).
+/// Per-endpoint TCP/gRPC round-trip latency tracker (ping metric).
 /// A dedicated tokio task per endpoint records GetVersion RPC
 /// durations every [`PING_INTERVAL`]; the running average lands in
-/// `endpoints[].avg_ping_ms` at end-of-run (spec §8).
+/// `endpoints[].avg_ping_ms` at end-of-run (the output JSON schema).
 ///
 /// Lock-free: sum + count atomics. Reader at end-of-run computes
 /// the average; the per-event hot path never touches this.
@@ -247,7 +247,7 @@ impl PingTracker {
     }
 }
 
-/// Spec §6.5: ping at subscription open and every 30 s.
+/// Ping metric: ping at subscription open and every 30 s.
 const PING_INTERVAL: Duration = Duration::from_secs(30);
 /// Bound a single ping's wait so a dead connection is detected
 /// promptly and the ping task can reconnect.
@@ -256,7 +256,7 @@ const PING_TIMEOUT: Duration = Duration::from_secs(5);
 /// Counters accumulated by the ingest loop across all events.
 ///
 /// `total_slots_collected` drives the `--slots` stop condition; the
-/// rest populate `metadata.total_*_updates` (spec §8). Built at
+/// rest populate `metadata.total_*_updates` (the output JSON schema). Built at
 /// end-of-run from two [`IngestCountersPartial`] values returned
 /// by the per-endpoint dispatcher threads plus the [`AtomicU64`]
 /// slot counter that the ep1 dispatcher increments live.
@@ -339,7 +339,7 @@ pub async fn execute(config: Config) -> Result<std::path::PathBuf> {
     let shutdown = Arc::new(AtomicBool::new(false));
     install_signal_handler(Arc::clone(&shutdown));
 
-    // Spec §6.5: per-endpoint ping background task. Opens its own
+    // Ping metric: per-endpoint ping background task. Opens its own
     // connection (separate from receivers) so the running average
     // reflects baseline endpoint health, not receiver pipeline
     // backpressure. Spawned on the existing tokio runtime; exits on
@@ -994,7 +994,7 @@ async fn sleep_unless_shutdown(dur: Duration, shutdown: &AtomicBool) -> bool {
     false
 }
 
-/// Per-endpoint ping task (spec §6.5). Opens a dedicated client
+/// Per-endpoint ping task (ping metric). Opens a dedicated client
 /// connection, calls `GetVersion` on subscription open and every
 /// [`PING_INTERVAL`] thereafter, records each round-trip duration
 /// into the shared [`PingTracker`]. Reconnects on RPC error or
@@ -1306,9 +1306,9 @@ fn compute_capture_totals(
 
 /// Per-endpoint dropped-event counts, summed across that endpoint's
 /// receiver rings. Populates `metadata.dropped_events_ep1` /
-/// `metadata.dropped_events_ep2` (spec §8). A non-zero value indicates
+/// `metadata.dropped_events_ep2` (the output JSON schema). A non-zero value indicates
 /// the receiver hit ring saturation and dropped events to keep up
-/// (spec §7 "drop on overflow rather than block the receiver").
+/// (the bounded-memory invariant "drop on overflow rather than block the receiver").
 #[derive(Debug, Default, Clone, Copy)]
 struct DroppedTotals {
     ep1: u64,

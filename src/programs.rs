@@ -24,7 +24,7 @@ pub struct ProgramEntry {
     /// Solana program ID in base58 form. Always exactly 32 bytes decoded.
     pub program_id: String,
     /// Free-text description; surfaced verbatim in the output JSON `programs`
-    /// block (spec §8). Empty string if the source row had only two columns.
+    /// block (the output JSON schema). Empty string if the source row had only two columns.
     pub description: String,
 }
 

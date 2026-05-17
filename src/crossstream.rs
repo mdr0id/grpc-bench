@@ -1,4 +1,4 @@
-//! Within-endpoint cross-stream ordering (spec §6.3).
+//! Within-endpoint cross-stream ordering ().
 //!
 //! Per-endpoint metrics (one tracker per endpoint):
 //!

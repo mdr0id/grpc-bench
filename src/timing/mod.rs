@@ -1,6 +1,6 @@
 //! Timing primitives shared by every receiver task.
 //!
-//! Two clocks are captured per event (spec §5):
+//! Two clocks are captured per event (the precision posture):
 //! - `mono_ns`: `CLOCK_MONOTONIC` nanoseconds. Used for all duration math
 //!   (deltas between endpoints, inter-message gaps, reconnect TTFM).
 //! - `wall_ms`: epoch milliseconds. Used only for UI timelines and
@@ -15,7 +15,7 @@
 //! 2. **User-space fallback**. `Instant::now()` captured immediately after
 //!    the protobuf decode returns. Includes tokio scheduling jitter and
 //!    allocator pressure, which is meaningful at sub-10ms deltas — the
-//!    fallback must therefore be loud at startup (spec §5).
+//!    fallback must therefore be loud at startup (the precision posture).
 //!
 //! [`now_user_space`] always succeeds and produces the user-space pair.
 //! When kernel timestamps are active, [`from_kernel_realtime_ns`] turns a

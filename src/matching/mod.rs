@@ -1,11 +1,11 @@
-//! Identity-tuple matching across endpoints (spec §6.1, §6.2).
+//! Identity-tuple matching across endpoints (, §6.2).
 //!
 //! [`PairMatcher`] is the generic, single-threaded core: it holds pending
 //! events keyed by identity, and on each `observe` looks up the opposite
 //! endpoint's pending entry. A match updates a streaming t-digest of
 //! deltas (in milliseconds), plus directional counts. Unmatched entries
 //! are evicted by [`EvictionPolicy`] so memory stays bounded over long
-//! soaks (spec §7 "Bound memory usage at all times").
+//! soaks (the bounded-memory invariant "Bound memory usage at all times").
 //!
 //! The per-stream wrappers in [`accounts`], [`transactions`], [`blocks`],
 //! and [`slots`] add the stream-specific identity types and (for
@@ -38,11 +38,11 @@ pub const TDIGEST_BUFFER_FLUSH: usize = 1024;
 
 /// `tdigest` compression factor. Higher = more accurate but slower /
 /// bigger. 100 is the default the crate ships and produces sub-1%
-/// quantile error on uniform inputs, comfortably within the spec §10
+/// quantile error on uniform inputs, comfortably within the the manual validation runs
 /// "p99 within 1% of true p99" test target.
 pub const TDIGEST_COMPRESSION: usize = 100;
 
-/// Observations between eviction passes (spec §7 "Bound memory usage at
+/// Observations between eviction passes (the bounded-memory invariant "Bound memory usage at
 /// all times"). Calling `evict()` on every `observe` was the
 /// dispatcher-CPU hot path at saturating load: a per-event
 /// `HashMap::retain` over thousands of pending entries dominated the
@@ -348,7 +348,7 @@ impl LatencyDigestSummary {
 }
 
 /// Total events received per endpoint, used to populate
-/// `metadata.total_*_updates` and capture parity (spec §8, §9.3).
+/// `metadata.total_*_updates` and capture parity (the output JSON schema, §9.3).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CaptureTotals {
     /// Sum from endpoint1 receivers.
@@ -424,7 +424,7 @@ pub fn dispatch(matchers: &StreamMatchers, event: &Event) {
             // entries-only subscription typically lives on a different URL
             // (Quicknode entries endpoint) and the cross-endpoint metric
             // doesn't apply. Entries feed the cross-stream layer instead
-            // (spec §6.3); see [`crate::crossstream`].
+            // (); see [`crate::crossstream`].
         }
     }
 }

@@ -52,7 +52,7 @@ impl std::fmt::Display for Commitment {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Allocator {
-    /// Default. Production allocator per spec §5.
+    /// Default. Production allocator per the precision posture.
     Jemalloc,
     /// Alternative; currently treated identically to jemalloc on macOS dev
     /// builds (we don't link mimalloc by default — see [`Self::Jemalloc`]).
@@ -174,7 +174,7 @@ pub struct Cli {
     pub with_transactions: bool,
 
     /// Include `write_version` in the accounts identity tuple. Off by
-    /// default — spec §6.1 deviation, since `write_version` is
+    /// default —  deviation, since `write_version` is
     /// validator-local and differs across providers/dedicated nodes.
     /// Enable when comparing two endpoints backed by the same source
     /// (e.g. for thorofare-parity validation against same-provider
@@ -218,7 +218,7 @@ pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
 
-    /// CPU cores to pin receiver/processor/control threads to (spec §5).
+    /// CPU cores to pin receiver/processor/control threads to (the precision posture).
     ///
     /// Three forms are accepted:
     ///
@@ -237,7 +237,7 @@ pub struct Cli {
     #[arg(long, value_name = "SPEC")]
     pub cpu_affinity: Option<String>,
 
-    /// Request `SCHED_FIFO` priority 50 on receiver threads (spec §5).
+    /// Request `SCHED_FIFO` priority 50 on receiver threads (the precision posture).
     /// Requires `CAP_SYS_NICE` or root; fails loud if rejected.
     ///
     /// Auto-mitigation: combining `--realtime` with
@@ -347,7 +347,7 @@ pub struct Config {
     /// Whether to include the `SubscribeTransactions` filter.
     pub with_transactions: bool,
     /// Whether to include `write_version` in the accounts identity
-    /// tuple (spec §6.1 deviation, see CLI doc on `Cli::strict_account_key`).
+    /// tuple ( deviation, see CLI doc on `Cli::strict_account_key`).
     pub strict_account_key: bool,
     /// Number of programs packed into each accounts sub-subscription
     /// (see [`Cli::accounts_programs_per_filter`]).

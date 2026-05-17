@@ -2,14 +2,13 @@
 
 End-to-end recipe for a credible US-east-1 comparison between two
 Yellowstone gRPC providers. Two tests, ~15 minutes start to finish;
-optional 1-hour soak (§5) for sustained-load characterization, and
-optional thorofare cross-validation (§4).
+optional [1-hour soak](#5-optional--1-hour-soak) for sustained-load
+characterization, and optional
+[thorofare cross-validation](#4-thorofare-cross-validation-optional-10-minutes).
 
-> **macOS / dev hosts**: the harness builds and runs but cannot produce
-> defensible sub-10ms numbers. CPU pinning, `SCHED_FIFO`, `jemalloc`,
-> and the rest of the §5 precision posture are Linux-only. Use a Linux
-> host for any number that needs to be defended; see PRECISION.md for
-> the full design rationale.
+> This runbook assumes a Linux x86_64 host. For dev hosts on macOS
+> (which can build + test but cannot produce defensible sub-10 ms
+> numbers), see [`MACOS.md`](./MACOS.md).
 
 ---
 
@@ -62,7 +61,7 @@ The repo ships three TSV files. Pick the right one for the test:
 
 | File              | Programs | Use case                                                   |
 |-------------------|----------|------------------------------------------------------------|
-| `23p.tsv`  | 23       | Full Customer production filter. Required for §10 Run 5 / 6. |
+| `23p.tsv`  | 23       | Full 23-program production filter. Required for the saturating-load validation runs. |
 | `20p.tsv`  | 20       | 23 minus SPL/Token-2022/System. Lower volume, useful when comparing AMM + launchpad behaviour only. |
 | `pump-only.tsv`   | 1        | pump.fun bonding curve only. Smoke / baseline.             |
 
@@ -77,7 +76,7 @@ across accounts sub-subscriptions on the wire.
 |---|---|---|
 | **`1`** (default) | One sub-subscription per program | **Maximum measurement fidelity.** Per-program p50 lands in single-digit-ms-to-low-teens band. Use when you have an endpoint tier that comfortably allows ≥25 concurrent gRPC streams *and* you want every program measured in isolation. |
 | **`4`** (recommended for tier-limited endpoints) | 4 programs per chunk, with `system`, `spl_token`, `token_2022` always split out | **Production-shape, fits under a 25-stream tier cap.** Heavy programs stay individually measurable; the long tail combines without significant accuracy cost. Required for `--with-blocks` / dual-commitment workloads on any tier with a 25-stream cap (see §Endpoint stream caps below). |
-| `23` (or program count) | Single multi-program filter | **Matches customer production topology exactly.** Surfaces the server-side multi-program-filter cost — useful for showing the customer what their existing subscription literally pays in wire latency. |
+| `23` (or program count) | Single multi-program filter | **Matches a literal production-shape subscription with all programs in one filter.** Surfaces the server-side multi-program-filter cost — useful for measuring what a single-filter production subscription is paying in wire latency. |
 | anything else | N programs per chunk, with heavy programs always isolated | Custom tradeoff. |
 
 Empirical evidence:
@@ -238,10 +237,11 @@ WARNING line on stderr; `auto` already omits `proc=` by design.
 
 ### Picking the right command for your endpoint tier
 
-Use the §1 stream-count table to know which of these to run. If your
-endpoint allows ≥51 concurrent streams, run the **full** form. If
-it's a typical 25-stream-cap tier (QN standard tiers, several others),
-run the **tier-safe** form. Both produce the same shape of output JSON.
+Use the [stream-count table above](#endpoint-stream-caps-eg-qn-tiers-cap-at-25)
+to know which of these to run. If your endpoint allows ≥51 concurrent
+streams, run the **full** form. If it's a typical 25-stream-cap tier
+(QN standard tiers, several others), run the **tier-safe** form.
+Both produce the same shape of output JSON.
 
 #### Full form (endpoint with ≥51 stream cap)
 
@@ -354,7 +354,7 @@ targets.
 
 | Field | Healthy means |
 |---|---|
-| `parity_pct` | within ±1% — capture ratio between endpoints must match (spec §9.3) |
+| `parity_pct` | within ±1% — capture ratio between endpoints must match () |
 | `slot_processed_p50` | 5–10 ms (geographic baseline) |
 | `account.p50` | **8–12 ms** at chunk=1; **9–14 ms** at chunk=4; if you see 50–3500 ms you're hitting the multi-program-filter inflation — check chunk size |
 | `account.p99` | < 200 ms at chunk=1 single-cmt; up to ~300 ms acceptable at dual-cmt |
@@ -365,8 +365,9 @@ targets.
 
 **Negative `p50` is a topology smell, not a code bug.** If any
 high-matched-count program shows a negative p50, you almost
-certainly hit an endpoint stream cap — see §Endpoint stream caps
-in §1, then re-run with `--accounts-programs-per-filter 4`.
+certainly hit an endpoint stream cap — see
+[Endpoint stream caps](#endpoint-stream-caps-eg-qn-tiers-cap-at-25)
+above, then re-run with `--accounts-programs-per-filter 4`.
 
 ### On capture rates
 
@@ -409,7 +410,7 @@ with the magnitude shown by `p50`.
 
 ## 4. Thorofare cross-validation (optional, ~10 minutes)
 
-Spec §9.4 — confirm the timing path agrees with
+Thorofare agreement criterion — confirm the timing path agrees with
 `rpcpool/yellowstone-thorofare` on metrics both tools measure.
 Required if your customer wants independent verification.
 
@@ -448,7 +449,7 @@ window (start both within a few seconds of each other).
 Use this when you need to characterize an endpoint's *sustained*
 behavior, not its first-1000-slot behavior. Catches gradual drift,
 slow memory growth, periodic stalls that don't show up on a short
-run, and validates the spec §7 "bound memory at all times"
+run, and validates the the bounded-memory invariant "bound memory at all times"
 invariant under continuous load. ~60 minutes wall clock.
 
 ```sh
@@ -468,40 +469,41 @@ target/release/grpc-bench \
 
 What to watch in `/tmp/soak-1h.log`:
 
-- `INFO snapshot …` lines fire every 10 s (spec §7). The 10-min,
+- `INFO snapshot …` lines fire every 10 s (the bounded-memory invariant). The 10-min,
   20-min, 30-min, 60-min snapshots' `total_slots` should increase
   roughly linearly — if they plateau, something stalled.
 - `disconnects` should stay 0 / 0 unless the endpoint genuinely
   flapped (provider-side issue).
 - The process RSS (e.g. `ps -o rss= -p $(pgrep grpc-bench)` in a
-  side terminal every 5 min) should stay bounded — spec §7
+  side terminal every 5 min) should stay bounded — the bounded-memory invariant
   requires this and the matcher's slot-window eviction enforces it.
 
-When the run finishes, the same headline jq from §3 applies. For a
-soak run you also care about distribution stability — i.e. whether
-the 60-min p50/p99 differ meaningfully from the first 10 min. If
-your customer needs that comparison, dial up snapshot logging
-verbosity and feed the snapshot-line timestamps through to a
-quick spreadsheet.
+When the run finishes, the same headline jq from
+[§3](#3-test-2--comparative-benchmark-10-minutes) applies. For a soak
+run you also care about distribution stability — i.e. whether the
+60-min p50/p99 differ meaningfully from the first 10 min. If you need
+that comparison, dial up snapshot logging verbosity and feed the
+snapshot-line timestamps through to a quick spreadsheet.
 
-## 6. What to hand the customer
+## 6. Reading the output JSON
 
-The single result file `results/comparison.json` is self-contained: it
-carries the full host posture (kernel, allocator, governor, RT outcome),
-the proto-version handshake, every per-stream summary, and per-program
-buckets. No external context required.
+The single result file `results/comparison.json` is self-contained:
+it carries the full host posture (kernel, allocator, governor, RT
+outcome), the proto-version handshake, every per-stream summary,
+and per-program buckets. No external context required.
 
-If you want the headline numbers as a one-pager, pipe through the jq
-above; it's the same shape the writeup template expects.
+The headline jq in [§3](#3-test-2--comparative-benchmark-10-minutes)
+covers the everyday metrics. Below are the fields that aren't in that
+headline but are worth knowing about — particularly the ones grpc-bench
+measures that other harnesses do
+not:
 
-For the unique-vs-thorofare claims, the relevant fields are:
-
-| Field | What it tells the customer |
+| Field | What it surfaces |
 |---|---|
 | `per_program_account_delay` (whole map) | Per-program latency table, all 23 programs measured in one run. Thorofare requires 23 separate runs to approximate. |
-| `cross_stream.<endpoint>.tx_vs_account` | Within each endpoint: when the matching tx arrives vs the account write. Negative = tx leads. **Only grpc-bench measures this.** |
-| `stability.<endpoint>.slot_gap_ms` | Inter-event gap distribution for slot status. Stalls > 600ms recorded with timestamps. |
-| `stability.<endpoint>.processed_confirmed_drift_ms` | Per-slot delay between Processed and Confirmed stages — provider plugin internal latency. |
-| `stability.<endpoint>.disconnects` | Disconnect events with gRPC status codes + cumulative event counts. |
-| `comparative.block_delay` | Block stream comparison. Thorofare doesn't support blocks at all. |
-| `endpoints[].avg_ping_ms` | gRPC ping per endpoint, captured every 30s during the run. |
+| `cross_stream.<endpoint>.tx_vs_account` | Within each endpoint, the arrival delta between a matching transaction and account-write pair. Negative = tx leads. **Only grpc-bench measures this.** |
+| `stability.<endpoint>.slot_gap_ms` | Inter-event gap distribution for slot status. Stalls > 600 ms are recorded with timestamps in `stall_events`. |
+| `stability.<endpoint>.processed_confirmed_drift_ms` | Per-slot delay between Processed and Confirmed stages — provider plugin internal latency (populated only on dual-commitment runs). |
+| `stability.<endpoint>.disconnects` | Disconnect events with gRPC status codes + cumulative event counts. Empty list = 0 disconnects. |
+| `comparative.block_delay` | Block stream comparison (populated when `--with-blocks` is set). |
+| `endpoints[].avg_ping_ms` | gRPC ping per endpoint, captured every 30 s during the run. |

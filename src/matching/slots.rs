@@ -1,6 +1,6 @@
 //! Slot-status matching across endpoints.
 //!
-//! Identity tuple per spec §6.1: `(slot, stage)`. The 6-stage breakdown
+//! Identity tuple per : `(slot, stage)`. The 6-stage breakdown
 //! `(FirstShredReceived, Completed, CreatedBank, Processed, Confirmed,
 //! Finalized)` is reported as one t-digest per stage in the output JSON
 //! (`comparative.slot_status.<stage>_delay`).

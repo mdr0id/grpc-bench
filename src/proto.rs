@@ -1,4 +1,4 @@
-//! gRPC proto version negotiation (spec §12.A).
+//! gRPC proto version negotiation (the proto policy).
 //!
 //! On startup we call `GetVersion` against every endpoint, parse the
 //! returned version string (which yellowstone-grpc-geyser emits as a JSON
@@ -8,7 +8,7 @@
 //!
 //! Compatibility policy:
 //!
-//! The spec's §12.A is internally inconsistent on one point — rule 3 says
+//! The spec's the proto policy is internally inconsistent on one point — rule 3 says
 //! "refuse if server proto < harness build proto", but the explicit
 //! minimum baselines (`yellowstone-grpc-geyser 12.2.0+solana.3.1.13`,
 //! `richat 2.1.0`) cover plugin versions whose proto can be older than
@@ -28,7 +28,7 @@
 //! - Newer proto major than build → `Warn` (decode of known fields still
 //!   works; new wire fields are silently dropped).
 //! - Plugin baseline (`yellowstone-grpc-geyser >= 12.2.0`, `richat >= 2.1.0`
-//!   from spec §12.A) is enforced against the **plugin version** the
+//!   from the proto policy) is enforced against the **plugin version** the
 //!   server reports, not the proto version → `RefuseBaseline`.
 //!
 //! Failure modes that are *not* a refusal — unreachable endpoints,
@@ -46,14 +46,14 @@ pub const HARNESS_PROTO_CRATE_VERSION: &str = env!("GRPC_BENCH_YELLOWSTONE_PROTO
 /// Resolved version of the `yellowstone-grpc-client` crate.
 pub const HARNESS_CLIENT_CRATE_VERSION: &str = env!("GRPC_BENCH_YELLOWSTONE_CLIENT_VER");
 
-/// Spec §12.A: minimum supported `yellowstone-grpc-geyser` baseline.
+/// Spec the proto policy: minimum supported `yellowstone-grpc-geyser` baseline.
 pub const MIN_YELLOWSTONE_GEYSER: SemVer = SemVer {
     major: 12,
     minor: 2,
     patch: 0,
 };
 
-/// Spec §12.A: minimum supported `richat` baseline.
+/// Spec the proto policy: minimum supported `richat` baseline.
 pub const MIN_RICHAT: SemVer = SemVer {
     major: 2,
     minor: 1,
@@ -257,7 +257,7 @@ pub enum Compatibility {
         /// Server major version reported by `GetVersion`.
         server: u32,
     },
-    /// Refused: server plugin failed an explicit baseline (spec §12.A).
+    /// Refused: server plugin failed an explicit baseline (the proto policy).
     RefuseBaseline {
         /// Plugin package name (e.g. `yellowstone-grpc-geyser`).
         package: String,
@@ -470,7 +470,7 @@ fn short_preview(s: &str) -> String {
 }
 
 /// Aggregate version metadata for the entire run, ready to serialize into
-/// the `proto_metadata` block of the output JSON (spec §8).
+/// the `proto_metadata` block of the output JSON (the output JSON schema).
 #[derive(Debug, Clone, Serialize)]
 pub struct ProtoMetadata {
     /// Resolved Cargo.lock version of `yellowstone-grpc-proto`.
@@ -624,7 +624,7 @@ mod tests {
 
     #[test]
     fn classify_warns_on_older_minor_same_major() {
-        // §12.A spec contradiction resolution: within-major drift is a
+        // the proto policy spec contradiction resolution: within-major drift is a
         // warning, not a refusal. The protobuf wire format is
         // forward-compatible for added fields.
         let h = sv(12, 3, 0);

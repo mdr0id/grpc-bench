@@ -50,7 +50,7 @@ fn init_tracing(filter: &str) {
         .try_init();
 }
 
-/// Spec §5: warm-start the allocator by allocating and dropping ~64MB of
+/// Precision posture: warm-start the allocator by allocating and dropping ~64MB of
 /// varied-size buffers before subscriptions open. Avoids first-message
 /// allocation jitter when the very first `SubscribeUpdate` decodes.
 fn warm_allocator() {

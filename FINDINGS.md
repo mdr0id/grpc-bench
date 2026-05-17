@@ -1,28 +1,30 @@
-# grpc-bench v1 — findings substrate
+# grpc-bench v1 — findings
 
-> **For the project owner.** Draft material for the customer-facing
-> write-up. Polish, restructure, and pick the framing that fits your
-> audience. The validation numbers and unique-vs-thorofare findings
-> are the load-bearing claims.
+This document captures the headline measurement results, the
+unique-vs-thorofare claims, and the known limitations. It's the
+"what does this tool actually produce" reference. For operational
+guidance (how to run it) see [`RUNBOOK.md`](./RUNBOOK.md); for the
+chronological measurement history (rig progression, patch series)
+see [`BENCHMARK_HISTORY.md`](./BENCHMARK_HISTORY.md).
 
 ---
 
 ## Headline
 
-gRPC-bench is a Solana gRPC benchmark harness purpose-built for
+grpc-bench is a Solana gRPC benchmark harness purpose-built for
 production-grade comparison of Yellowstone-compatible endpoints. It
 validates against the publicly available `rpcpool/yellowstone-thorofare`
 on shared metrics within **±0.3 ms** and adds **five capabilities that
 thorofare structurally cannot produce**:
 
 1. **Multi-program subscription latency** measured at thorofare-equivalent
-   precision per program, across all 23 of the customer's production
-   programs in a single run
+   precision per program, across all 23 production programs in a
+   single run
 2. **Intra-endpoint stream ordering** (`tx_vs_account`) — the sniper-edge
    metric that quantifies which stream gives the earliest signal on a
    single provider
 3. **Subscription-topology cost surfacing** — the same measurement run
-   can expose what the customer's literal production subscription is
+   can expose what a literal multi-program production subscription is
    paying in wire-arrival inflation vs the wire-arrival floor
 4. **Stream stability for long-run reliability** — gap distribution,
    processed→confirmed drift, disconnect events with gRPC status codes,
@@ -75,14 +77,15 @@ implementation.
 
 ---
 
-## Headline measurement at the customer's production topology
+## Headline measurement at the production topology
 
-Full 23-program Customer production subscription, single commitment
-processed, with transactions, on the DO 32-vCPU G-class rig. `--realtime`
-enabled (saturating-workload posture). `--accounts-programs-per-filter 1`
-(one accounts sub-subscription per program for measurement-optimized
-timing). Numbers below are v40 measurements (2026-05-17), reproduced
-across two consecutive runs (v40a / v40b) for statistical confidence.
+Full 23-program production subscription (`23p.tsv`), single
+commitment processed, with transactions, on the DO 32-vCPU G-class
+rig. `--realtime` enabled (saturating-workload posture).
+`--accounts-programs-per-filter 1` (one accounts sub-subscription per
+program for measurement-optimized timing). Numbers below are v40
+measurements (2026-05-17), reproduced across two consecutive runs
+(v40a / v40b) for statistical confidence.
 
 ### Overall comparative
 
@@ -153,9 +156,9 @@ the sign or the practical takeaway.
 Both endpoints delivered slot status without disconnect. A small
 number of brief wire stalls (slot gap > 600 ms) — provider-side
 slot delivery hiccups, not pipeline failures. Useful baseline for
-the customer's production behavior expectations.
+production behavior expectations.
 
-### Capture parity (spec §9.3 acceptance criterion)
+### Capture parity (parity-acceptance criterion)
 
 v40 measurement (2026-05-17):
 
@@ -164,7 +167,7 @@ v40 measurement (2026-05-17):
 | ep1 | 3,086,094 (accounts) + ~330k (tx) | — | — |
 | ep2 | 3,076,898 (accounts) + 266,984 (tx) | 3,076,897 (accounts) | **99.7%** |
 
-Parity holds well within the spec §9.3 0.1% target. Reproducibility
+Parity holds well within the ±0.1% parity target. Reproducibility
 across two consecutive runs: 99.7% / 99.6% — within ±0.1 pp.
 
 The 99.7% capture is **near the rig's ceiling, not the tool's**.
@@ -224,29 +227,30 @@ Direct comparison on the same workload, same rig, same time window:
 **Server-side multi-program filter cost is real wire behavior**, not
 a measurement artifact — confirmed by running 3 separate single-program
 subscriptions in one grpc-bench process and recovering single-digit
-p50s. This is something the customer cannot see without grpc-bench;
-it's not visible in their production application (it's experienced as
-latency, not measured), and thorofare can't probe it at all.
+p50s. This cost is invisible to a production application using a
+single multi-program filter (it's experienced as latency, not
+measured), and thorofare can't probe it at all.
 
-**Actionable for the customer**: knowing this exists, they may choose
-to split their production accounts filter into N smaller filters at
-the wire level. gRPC-bench predicts the latency floor they'd reach.
+**Actionable insight:** knowing this exists, a production deployment
+may choose to split its accounts filter into N smaller filters at the
+wire level. grpc-bench predicts the latency floor that split would
+reach.
 
 ### 3. Cross-stream `tx_vs_account` per endpoint
 
-Spec §6.3. For each transaction observed on the tx stream within an
+Cross-stream metric. For each transaction observed on the tx stream within an
 endpoint, find the matching account update on the same endpoint's
-account stream and record `account_arrival - tx_arrival`. Tells the
-customer **which stream gives the earliest signal on a single
-provider** — independent of which provider is faster overall.
+account stream and record `account_arrival - tx_arrival`. Surfaces
+**which stream gives the earliest signal on a single provider** —
+independent of which provider is faster overall.
 
 This is the sniper-edge metric: a trading client deciding whether to
 react to a tx event or an account event needs to know which arrives
-first. gRPC-bench's measurement (−1.4 to −1.8 ms on both endpoints)
-tells them: tx leads by 1.4 ms on ep1, 1.8 ms on ep2. Thorofare does
+first. The measured baseline (−1.4 to −1.8 ms on both endpoints)
+says: tx leads by ~1.4 ms on ep1, ~1.8 ms on ep2. Thorofare does
 not compute this.
 
-### 4. Stream stability metrics (spec §6.4)
+### 4. Stream stability metrics ()
 
 Inter-message gap distribution, processed→confirmed drift,
 disconnect events with full gRPC status code and cumulative event
@@ -260,7 +264,7 @@ both subscriptions every N seconds for synthetic resilience testing.
 
 ### 5. Block streams with full transaction sets
 
-Spec §6.1, §10 Run 4. gRPC-bench supports `SubscribeBlocks` with
+Block stream support. gRPC-bench supports `SubscribeBlocks` with
 `include_transactions=true`. Each block delivered with all its
 transactions inline; cross-endpoint delta measured by
 `(slot, blockhash)`. Block-size and tx-count recorded per slot for
@@ -268,7 +272,7 @@ load correlation. Thorofare does not support blocks at all.
 
 ---
 
-## Precision posture (spec §5)
+## Precision posture (the precision posture)
 
 gRPC-bench is explicit about the sources of timing noise at sub-10 ms
 deltas and provides knobs to control each:
@@ -371,12 +375,14 @@ CPU ceiling around 67% capture. v40's patch series (lazy eviction
 on the matcher hot path) was designed to lift exactly that ceiling.
 v40 dual-cmt was verified to run cleanly under chunk=4 on a
 25-stream-cap tier; full characterization of the v40 dual-cmt
-capture number is pending and will be measured during customer-rig
-validation.
+capture number is pending and depends on the rig the run is
+performed on.
 
 This is rig-sizing characterization, not a measurement-tool defect.
-We recommend the final customer-presented dual-commitment number be
-taken on the customer's actual production AWS instance.
+For a defensible dual-commitment number, run on the actual
+production-class instance — the DO G-class data here is reference
+characterization, not a substitute for measurement on your own
+silicon.
 
 ### 3. Per-program tail variance — meteora_dlmm specifically
 
@@ -400,16 +406,16 @@ across all v39 and v40 measurements; the soak just sampled long
 enough to reveal that the real tail extends into the tens of seconds
 under sustained saturation. Almost certainly a provider-side
 filter-matching cost specific to meteora_dlmm's update pattern.
-Disclose to the customer as a known per-program characteristic if
-their use case relies on bounded meteora_dlmm latency.
+Worth knowing if a use case relies on bounded meteora_dlmm latency
+specifically; the other 17 programs are unaffected.
 
 ### 2. `SO_TIMESTAMPNS` deferred to v2
 
-Spec §5 mandates kernel-level timestamps for sub-10 ms precision
+Precision posture mandates kernel-level timestamps for sub-10 ms precision
 defensibility. The primitives (`setsockopt` wrapper, `cmsg` parser)
 are implemented in `src/timing/kernel_ts.rs`. The remaining work
 (replumbing tonic's transport to surface socket-level timestamps via
-recvmsg) is days of engineering deferred to v2 per spec §13 #2.
+recvmsg) is days of engineering deferred to v2.
 
 Diagnostic 2026-05-16 confirmed that the multi-program timing
 inflation (item 1 above) is **server-side wire behavior, not
@@ -422,7 +428,7 @@ between standalone-single-program (8.4 ms) and chunked-parallel
 
 ### 3. `entries_vs_tx` / `entries_vs_account` deferred behind feature flag
 
-Spec §6.3 lists these as headline sniper-edge metrics. Subscribe
+Cross-stream metric lists these as headline sniper-edge metrics. Subscribe
 Entries is a QuickNode-specific proto extension; the proto source
 is feature-flagged for v2 (`cargo build --features entries`). v1
 ships with `tx_vs_account` populated and `entries_*` fields present
@@ -430,22 +436,24 @@ as `null` in the output JSON with explanatory notes.
 
 ---
 
-## Recommended customer evaluation procedure
+## Recommended evaluation procedure
 
-All commands assume the customer's 64-vCPU AWS rig with
-`--cpu-affinity auto` (which materializes as ep1=cores 2–31,
-ep2=cores 32–62, ctrl=core 63 on a 64-core box).
+Commands below assume a 64-vCPU rig with `--cpu-affinity auto`
+(which materializes as ep1=cores 2–31, ep2=cores 32–62, ctrl=core 63
+on a 64-core box). On smaller rigs the auto layout adapts; see the
+[RUNBOOK](./RUNBOOK.md) for the per-rig affinity table.
 
-1. **Run `posture.json` (Test 1 in RUNBOOK)** to verify their host's
-   precision posture is correctly configured. Fix anything that
-   warns.
-2. **Run `comparison.json` (Test 2, tier-safe form in RUNBOOK)** —
-   full 23-program Customer production topology with `--realtime
+1. **Run the posture check** (Test 1 in [RUNBOOK](./RUNBOOK.md#2-test-1--posture-check-60-seconds))
+   to verify the host's precision posture is correctly configured.
+   Fix anything that warns.
+2. **Run the comparative benchmark, tier-safe form** (Test 2 in
+   [RUNBOOK](./RUNBOOK.md#3-test-2--comparative-benchmark-10-minutes)) —
+   full 23-program production topology with `--realtime
    --accounts-programs-per-filter 4 --cpu-affinity auto` for 1000
-   slots. ~7 minutes wall time. The chunk=4 form keeps the run
-   under the 25-concurrent-stream cap on standard provider tiers
-   while preserving individual measurement on the heavy programs
-   (system / spl_token / token_2022) via the always-split logic.
+   slots. ~7 minutes wall time. The chunk=4 form keeps the run under
+   the 25-concurrent-stream cap on standard provider tiers while
+   preserving individual measurement on the heavy programs (system /
+   spl_token / token_2022) via the always-split logic.
 3. **Inspect `per_program_account_delay`** to see per-program latency
    distribution across all 23 programs.
 4. **Inspect `cross_stream.<endpoint>.tx_vs_account`** to identify
@@ -453,15 +461,16 @@ ep2=cores 32–62, ctrl=core 63 on a 64-core box).
 5. **Inspect `stability.<endpoint>`** for production-readiness
    indicators (disconnects, slot gap distribution, drift).
 6. **Optional — run with `--accounts-programs-per-filter 23`** to see
-   what their current production single-filter subscription is paying
-   in server-side latency. Compare to step 3 for the cost-of-topology
+   what a literal single-filter multi-program subscription pays in
+   server-side latency. Compare to step 3 for the cost-of-topology
    delta.
 7. **Optional — run with `--duration 3600`** for a 1-hour soak.
-   Validates sustained-load behavior, spec §7 bounded memory invariant,
-   and reveals gradual drift that's invisible on a short run. See
-   RUNBOOK §5 for the exact command and what to monitor in the log.
+   Validates sustained-load behavior, bounded-memory invariant, and
+   reveals gradual drift that's invisible on a short run. See
+   [the soak section in RUNBOOK](./RUNBOOK.md#5-optional--1-hour-soak) for the exact
+   command and what to monitor.
 
-The single `comparison.json` is self-contained: full host posture,
+The single output JSON is self-contained: full host posture,
 proto-version handshake, every per-stream summary, per-program
-buckets, cross-stream, stability, ping. No external context required
-for downstream consumers.
+buckets, cross-stream, stability, ping. No external context
+required to interpret it.

@@ -73,7 +73,7 @@ item.
 
 ## Minimum supported server versions
 
-Per spec §12.A:
+Per the proto policy:
 
 | Plugin                    | Minimum baseline |
 |---------------------------|------------------|
@@ -122,7 +122,7 @@ switch to a dedicated-node endpoint.
    `GRPC_BENCH_YELLOWSTONE_CLIENT_VER` env vars; the result JSON's
    `proto_metadata` will reflect the new versions on the next run.
 3. Run the full test suite (`cargo test`).
-4. Run one of the §10 manual validation runs against a known-good
+4. Run one of the manual validation runs against a known-good
    endpoint to confirm decode still works.
 
 If the new release deprecates a field grpc-bench reads (account
@@ -143,7 +143,7 @@ versions independently. The unknown-package case appears in
 
 ## Never vendor stale `.proto` files
 
-The spec is explicit (§12.A): "Never vendor `.proto` files into this
+The spec is explicit (the proto policy): "Never vendor `.proto` files into this
 repository. Never copy proto message definitions into Rust source."
 grpc-bench follows this rule: there is no `proto/` directory and no
 `build.rs` codegen of Yellowstone types. All proto types come through
@@ -153,5 +153,5 @@ The only place this rule is consciously relaxed is the Phase 1 design
 note above: if a future implementer obtains a signature-enriched
 entries proto from Quicknode, it would land under `proto/quicknode/`
 with a clear source-URL and date header, and be codegen'd via
-`tonic-build` in `build.rs`. That codepath is documented in spec §12.A
+`tonic-build` in `build.rs`. That codepath is documented in the proto policy
 but is not in use today.

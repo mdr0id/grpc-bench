@@ -3,7 +3,7 @@
 # load fits within the macOS harness's working envelope.
 #
 # Use this for step-5 validation on the M4 rig. The full 23-program set
-# (23p.tsv) requires a Linux host per spec §5; see
+# (23p.tsv) requires a Linux host per the precision posture; see
 # memory/macos_throughput_ceiling.md.
 #
 # Format: short_name <TAB> program_id <TAB> feature_surface

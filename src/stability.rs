@@ -1,4 +1,4 @@
-//! Stream-stability metrics per spec §6.4.
+//! Stream-stability metrics per .
 //!
 //! Per endpoint:
 //! - Inter-message gap distribution on the slot-status stream.
@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// A slot-gap above this many milliseconds is recorded as a stall event
-/// (spec §6.4: "anything above 600 ms (a missed slot) is a stall").
+/// (: "anything above 600 ms (a missed slot) is a stall").
 pub const STALL_THRESHOLD_MS: f64 = 600.0;
 
 /// `comparative.stability.<endpoint>.stall_events[]` entry.

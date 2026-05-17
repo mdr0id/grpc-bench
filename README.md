@@ -5,12 +5,51 @@ Subscribes to two endpoints simultaneously, measures per-message arrival
 deltas with kernel-level precision (Linux), and writes a single JSON
 report.
 
+## TL;DR — up and running in 5 minutes
+
+```bash
+# 1. Build (Linux x86_64) and grant the SCHED_FIFO capability.
+cargo build --release
+sudo setcap cap_sys_nice=eip target/release/grpc-bench
+
+# 2. Provide your endpoint URLs + tokens.
+export EP1_URL=<reference-endpoint>:10000   EP1_TOKEN=<token>
+export EP2_URL=<system-under-test>:10000    EP2_TOKEN=<token>
+
+# 3. Run a 90-second smoke against pump.fun.
+target/release/grpc-bench \
+  --endpoint1 "$EP1_URL" --x-token1 "$EP1_TOKEN" \
+  --endpoint2 "$EP2_URL" --x-token2 "$EP2_TOKEN" \
+  --programs pump-only.tsv \
+  --slots 200 --commitment processed \
+  --with-transactions --cpu-affinity auto \
+  --output results/quick.json
+
+# 4. Read the headline.
+jq '{
+  p50_account_ms:  .comparative.account_delay.p50,
+  p50_tx_ms:       .comparative.transaction_delay.p50,
+  capture_acc_pct: ((.metadata.total_account_updates[1]
+                    / .metadata.total_account_updates[0]) * 1000 | floor / 10),
+  disconnects:     [(.stability.endpoint1.disconnects | length),
+                    (.stability.endpoint2.disconnects | length)]
+}' results/quick.json
+```
+
+A healthy run prints something like p50 ~7 ms, capture ~99%, zero
+disconnects. If anything looks wrong, see
+[RUNBOOK §2 — posture check](RUNBOOK.md#2-test-1--posture-check-60-seconds)
+to verify the host is configured correctly. For the full production
+workload (23 programs, `--realtime`, hour soaks), follow the
+[RUNBOOK](RUNBOOK.md) end-to-end.
+
 ## Start here
 
 | If you want to… | Read |
 |---|---|
 | Set up a Linux host and run the benchmark | [`RUNBOOK.md`](RUNBOOK.md) |
-| See the customer-facing findings (headline numbers, unique-vs-thorofare claims, known limitations) | [`FINDINGS.md`](FINDINGS.md) |
+| Use macOS for development / testing (not for production numbers) | [`MACOS.md`](MACOS.md) |
+| See the headline findings (measured numbers, unique-vs-thorofare claims, known limitations) | [`FINDINGS.md`](FINDINGS.md) |
 | Trace the chronological measurement history — rig progression, patch series, cross-validation | [`BENCHMARK_HISTORY.md`](BENCHMARK_HISTORY.md) |
 | Understand the timing-precision design (kernel timestamps, RT scheduling, allocator, host posture) | [`PRECISION.md`](PRECISION.md) |
 | Understand proto versions, supported plugins (richat / yellowstone-grpc-geyser), Helius LaserStream compatibility | [`PROTO.md`](PROTO.md) |
@@ -20,8 +59,9 @@ report.
 The runbook is two tests (~15 minutes total): a 60-second posture check
 to verify the host is correctly configured, then a comparative
 benchmark run that produces the headline numbers. An optional
-1-hour soak (RUNBOOK §5) and thorofare cross-validation (§4) are
-available for deeper characterization.
+[1-hour soak](RUNBOOK.md#5-optional--1-hour-soak) and
+[thorofare cross-validation](RUNBOOK.md#4-thorofare-cross-validation-optional-10-minutes)
+are available for deeper characterization.
 
 ## What this is not
 
@@ -54,11 +94,11 @@ Every run writes a single JSON file:
 - `stability` — slot-gap distribution, stalls, disconnects, reconnect
   TTFM, processed↔confirmed drift
 
-Schema details live in spec §8; treat the runbook's jq examples as the
+Schema details live in the output JSON schema; treat the runbook's jq examples as the
 canonical reading recipe.
 
 ## Status
 
-v1. Works on Linux x86_64. Builds and runs on macOS for development but
-the precision posture is Linux-only (see PRECISION.md). Single-binary,
-no runtime dependencies beyond glibc.
+v1. Works on Linux x86_64. Single-binary, no runtime dependencies
+beyond glibc. macOS is supported as a development convenience only —
+see [`MACOS.md`](MACOS.md) for the caveats.

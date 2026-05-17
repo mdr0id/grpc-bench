@@ -67,7 +67,7 @@ pub fn is_known_heavy_program(program_id: &str) -> bool {
 }
 
 /// Stable filter names used by the harness. Kept as constants because the
-/// match layer (spec §6.1) keys metrics on these names when correlating
+/// match layer () keys metrics on these names when correlating
 /// events across endpoints.
 pub mod filter_names {
     /// Slot-status filter; spec §4.
@@ -84,7 +84,7 @@ pub mod filter_names {
 }
 
 /// Which endpoint a subscription belongs to. The summary JSON uses these
-/// labels in `comparative.*` and `stability.*` blocks (spec §8).
+/// labels in `comparative.*` and `stability.*` blocks (the output JSON schema).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EndpointRole {
     /// `--endpoint1`. Comparison reference.

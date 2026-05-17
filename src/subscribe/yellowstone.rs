@@ -24,7 +24,7 @@
 //!   custom `tonic` connector that owns the `TcpStream` and routes
 //!   per-frame timestamps to this layer is a meaningful refactor and is
 //!   tracked as a follow-up; see `PRECISION.md`.
-//! - **Default today** (Linux + macOS dev) is the §5 fallback:
+//! - **Default today** (Linux + macOS dev) is fallback:
 //!   `EventTimestamp` is captured via [`ClockOrigin::now_user_space`]
 //!   immediately after the protobuf decode returns.
 
@@ -208,7 +208,7 @@ pub async fn connect_with_decode_limit(
 }
 
 /// Call `GetVersion` and evaluate the response against the harness's
-/// built-against proto version (spec §12.A).
+/// built-against proto version (the proto policy).
 ///
 /// # Errors
 /// - [`YellowstoneError::GetVersion`] if the RPC itself fails.
@@ -261,7 +261,7 @@ pub async fn fetch_and_evaluate_version(
 }
 
 /// One decoded gRPC frame with the user-space `(mono, wall)` timestamp
-/// captured immediately after decode (spec §5 fallback path).
+/// captured immediately after decode (the precision posture fallback path).
 #[derive(Debug)]
 pub struct TimedUpdate {
     /// Arrival timestamp pair.
@@ -320,7 +320,7 @@ pub async fn open_subscription(
         })?;
     let stream = response.into_inner();
     Ok(stream.map(move |item| {
-        // Spec §5 fallback: capture the (mono, wall) pair immediately
+        // Precision posture fallback: capture the (mono, wall) pair immediately
         // after the decode returns.
         let ts = clock.now_user_space();
         item.map(|update| TimedUpdate { ts, update })

@@ -1,7 +1,7 @@
 //! Receiver-task spawning, ring buffers, and Linux-only CPU/realtime
-//! affinity helpers (spec §5, §7).
+//! affinity helpers (the precision posture, §7).
 //!
-//! Hot path per stream (spec §7):
+//! Hot path per stream (the bounded-memory invariant):
 //!
 //! ```text
 //! [receiver thread, pinned, optional SCHED_FIFO]
@@ -135,7 +135,7 @@ pub enum EventPayload {
         /// Producing transaction signature, when known.
         txn_signature: Option<Signature64>,
         /// Lamports value, used to detect `0 -> >0` pool-creation events
-        /// for the `entries_vs_account` cross-stream metric (spec §6.3).
+        /// for the `entries_vs_account` cross-stream metric ().
         lamports: u64,
     },
     /// Transaction stream. Identity: `(slot, signature)`.
@@ -161,7 +161,7 @@ pub enum EventPayload {
         entries_count: u64,
         /// Approximate encoded size of the block payload in bytes
         /// (`prost::Message::encoded_len`). Used by downstream analysis
-        /// to correlate latency with load (spec §6.1).
+        /// to correlate latency with load ().
         block_size_bytes: u64,
     },
     /// Entry. Identity: `(slot, index)`.
@@ -338,7 +338,7 @@ fn to_signature(b: &[u8]) -> Result<Signature64, DecodeError> {
     Ok(out)
 }
 
-/// Plan-time receiver task assignment of CPU cores. Spec §5 default for a
+/// Plan-time receiver task assignment of CPU cores. Precision posture default for a
 /// 4-core run: endpoint1 receiver on core 2, endpoint2 receiver on core 3,
 /// processor on core 4, control plane on core 5. Cores 0-1 left to the
 /// kernel.
@@ -439,7 +439,7 @@ impl AffinityPlan {
 }
 
 /// Parsed `--cpu-affinity` value. Both the legacy flat-comma form
-/// (`"2,3,4,5"`, spec §5 default) and the structured per-endpoint form
+/// (`"2,3,4,5"`, the precision posture default) and the structured per-endpoint form
 /// (`"ep1=2,3,4,5:ep2=6,7,8,9:proc=10:ctrl=11"`) deserialize into this
 /// shape. The structured form is required to express per-endpoint
 /// multi-core layouts; the flat form is preserved for backwards-
@@ -840,13 +840,13 @@ pub fn apply_cpu_affinity(_core: u32) -> SchedOutcome {
 /// Request `SCHED_FIFO` priority 50 on the current thread. Linux-only;
 /// non-Linux returns [`SchedOutcome::Unsupported`].
 ///
-/// Requires `CAP_SYS_NICE` or running as root. Per spec §5 we fail loud
+/// Requires `CAP_SYS_NICE` or running as root. Per the precision posture we fail loud
 /// (`Failed`) when the syscall is rejected; the binary's startup wiring
 /// converts that into a prominent startup warning if `--realtime` was set.
 #[cfg(target_os = "linux")]
 pub fn apply_realtime() -> SchedOutcome {
     // libc::sched_setscheduler with SCHED_FIFO is unsafe (raw FFI). Per
-    // spec §12.D this is one of the locations where `unsafe` is allowed;
+    //  this is one of the locations where `unsafe` is allowed;
     // we localize it here with a SAFETY justification.
     #[allow(unsafe_code)]
     {

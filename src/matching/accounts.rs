@@ -1,8 +1,8 @@
-//! Account-stream matching (spec §6.1, §6.2).
+//! Account-stream matching (, §6.2).
 //!
 //! Identity tuple: `(slot, pubkey, txn_signature)`.
 //!
-//! Deviation from spec §6.1, which lists
+//! Deviation from , which lists
 //! `(slot, pubkey, write_version, tx_signature)`: `write_version` is
 //! validator-local state — each validator's Geyser plugin maintains its
 //! own monotonic counter, so the same network-level write gets a
@@ -192,7 +192,7 @@ impl AccountMatcher {
     ///
     /// `write_version` enters the identity key only when
     /// `with_strict_account_key(true)` has been chained at
-    /// construction; otherwise it is dropped and the spec §6.1
+    /// construction; otherwise it is dropped and the 
     /// deviation applies.
     ///
     /// Takes `&self`: interior mutability comes from DashMap's

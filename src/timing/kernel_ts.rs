@@ -11,7 +11,7 @@
 //!    `CMSG_NXTHDR` and pull the timespec out of the `SCM_TIMESTAMPNS`
 //!    cmsg if present.
 //!
-//! Per spec §12.D this is the only module that may use `unsafe`. Each
+//! Per  this is the only module that may use `unsafe`. Each
 //! unsafe block carries a `// SAFETY:` comment explaining the invariant
 //! that justifies it. The crate-level `#![deny(unsafe_code)]` is relaxed
 //! here with a localized `#![allow(unsafe_code)]`.

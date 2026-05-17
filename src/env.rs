@@ -1,7 +1,7 @@
-//! Host metadata and precision-feature detection (spec §5).
+//! Host metadata and precision-feature detection (the precision posture).
 //!
 //! `HostMetadata` is captured once at startup and embedded verbatim in the
-//! output JSON's `host_metadata` block (spec §8). It also drives the
+//! output JSON's `host_metadata` block (the output JSON schema). It also drives the
 //! prominent startup warnings the spec mandates when timing-critical
 //! features are missing.
 //!

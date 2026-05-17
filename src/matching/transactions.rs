@@ -1,4 +1,4 @@
-//! Transaction-stream matching (spec §6.1).
+//! Transaction-stream matching ().
 //!
 //! Identity tuple: `(slot, signature)`. The transactions filter is keyed
 //! on program owners so the universe of observed transactions on both

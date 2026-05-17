@@ -1,4 +1,4 @@
-//! Block-stream matching (spec §6.1).
+//! Block-stream matching ().
 //!
 //! Identity tuple: `(slot, blockhash)`. We additionally track `tx_count`
 //! and `block_size_bytes` per matched slot so downstream analysis can

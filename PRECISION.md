@@ -43,10 +43,10 @@ system. At sub-10 ms deltas, that jitter degrades the signal-to-noise.
 
 **Status today.** The setsockopt and cmsg-parser are implemented in
 `src/timing/kernel_ts.rs` (Linux only, with `// SAFETY:` annotations per
-spec §12.D). The integration with `tonic` 0.14 — routing decoded gRPC
+). The integration with `tonic` 0.14 — routing decoded gRPC
 frames back to the per-segment timestamp — requires a custom tonic
 connector that owns the `TcpStream` and exposes its fd. That refactor is
-a follow-up. **Today, grpc-bench uses the §5 fallback path**: capture
+a follow-up. **Today, grpc-bench uses fallback path**: capture
 `Instant::now()` immediately after the protobuf decode call returns. A
 prominent warning at startup flags this, and the result JSON's
 `host_metadata.kernel_timestamps = false` records it for downstream
@@ -138,11 +138,10 @@ rejected, `host_metadata.warnings` will say:
 > continuing with default scheduling. Run as root or grant CAP_SYS_NICE
 > for credible measurements.
 
-## Allocator (`jemalloc`, Linux only)
+## Allocator (`jemalloc`)
 
-**What.** The Linux build links `tikv-jemallocator` and uses it as the
-global allocator. On macOS dev hosts the system allocator is used (the
-crate gates jemalloc to `target_os = "linux"`).
+**What.** The release build links `tikv-jemallocator` and uses it as
+the global allocator.
 
 **Why it matters.** glibc's default malloc has more pathological tail
 behaviour under sustained allocation churn (per-thread arenas,
@@ -154,9 +153,8 @@ drops ~64 MB of varied-size buffers before any subscription opens. This
 pre-faults the arenas so the first received message doesn't pay the
 first-allocation tax.
 
-**How to verify.** `host_metadata.allocator` reports `jemalloc` on Linux
-release builds. On macOS or musl builds it reports `system` and a
-warning fires.
+**How to verify.** `host_metadata.allocator` reports `jemalloc` on a
+release build.
 
 ## Lock-free hot path and pre-allocated rings
 
@@ -243,7 +241,7 @@ of a given run:
 
 If a result JSON's `host_metadata.warnings` is empty and `kernel_timestamps`,
 `realtime_priority`, `cpu_affinity` are all non-default, you're looking
-at a run with the full §5 precision posture.
+at a run with the full precision posture described in this document.
 
 ## What's deferred to a follow-up
 

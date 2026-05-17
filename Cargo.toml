@@ -86,7 +86,7 @@ sysinfo = "0.31"
 nix = { version = "0.31", features = ["sched", "socket", "uio", "process"] }
 # libc for clock_gettime + struct definitions used by the kernel-timestamp path.
 libc = "0.2"
-# jemalloc only on Linux. Spec §5 mandates jemalloc for production runs;
+# jemalloc only on Linux. Precision posture mandates jemalloc for production runs;
 # dev builds on macOS use the system allocator (see src/bin/grpc-bench.rs).
 tikv-jemallocator = "0.6"
 
