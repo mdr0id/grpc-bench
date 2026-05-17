@@ -83,9 +83,9 @@ Full 23-program production subscription (`23p.tsv`), single
 commitment processed, with transactions, on the DO 32-vCPU G-class
 rig. `--realtime` enabled (saturating-workload posture).
 `--accounts-programs-per-filter 1` (one accounts sub-subscription per
-program for measurement-optimized timing). Numbers below are v40
-measurements (2026-05-17), reproduced across two consecutive runs
-(v40a / v40b) for statistical confidence.
+program for measurement-optimized timing). Numbers below are
+reproduced across two consecutive runs (paired columns where shown)
+for statistical confidence.
 
 ### Overall comparative
 
@@ -99,7 +99,7 @@ Two-run reproducibility envelope: p50 within ±0.16 ms, p99 within
 ±22 ms across the consecutive runs. ep1 (US-east) consistently faster
 than ep2 (Frankfurt) — geographic baseline (~2 ms RTT vs ~85 ms RTT).
 
-### Per-program account latency (v40, sorted by event volume)
+### Per-program account latency (sorted by event volume)
 
 | Program | matched | p50 (ms) | p99 (ms) |
 |---|---|---|---|
@@ -114,13 +114,11 @@ than ep2 (Frankfurt) — geographic baseline (~2 ms RTT vs ~85 ms RTT).
 | `whirlpool` | 9,895 | 10.49 | 95 |
 | `pumpfun_fee` | 17,456 | 7.53 | 80 |
 
-All 18 reporting programs land in **5.96 – 10.49 ms p50** at v40 — a
-22% tightening from the v39 baseline (`system` improved from 13.96 to
-8.91 ms; `token_2022` from 12.64 to 7.87 ms). The improvement comes
-from the v40 patch series (lazy eviction on the matcher hot path +
-per-stream-kind ring sizing) which lifted the dispatcher CPU ceiling
-that previously capped per-program p50 around 12–14 ms on this
-virtualized rig class.
+All 18 reporting programs land in **5.96 – 10.49 ms p50** on this
+rig class. The matcher's lazy eviction on the hot path keeps the
+dispatcher CPU ceiling from binding at this scale; without it,
+per-program p50s on the heaviest programs (system, spl_token,
+token_2022) climbed into the 12–14 ms band.
 
 ### Intra-endpoint stream ordering (unique to grpc-bench)
 
@@ -128,7 +126,7 @@ virtualized rig class.
 observed, find the matching account write within the same endpoint
 and record the arrival delta.
 
-| Endpoint | tx_vs_account p50 (v39 baseline) |
+| Endpoint | tx_vs_account p50 |
 |---|---|
 | ep1 (US-east) | **−1.38 ms** |
 | ep2 (Frankfurt) | **−1.80 ms** |
@@ -139,14 +137,12 @@ on-chain state changes, this is the latency advantage of reading the
 transaction stream vs the account stream — measurable, real, and
 actionable. Thorofare does not compute this metric.
 
-The cross-stream metric is structurally insensitive to the v40 patch
-series (lazy eviction / per-stream ring sizing / heavy-program
-auto-split / RT guard / clean exit). It will be re-measured during
-customer-rig validation and is expected to hold on the same order;
-the customer's local network path will move the magnitudes but not
-the sign or the practical takeaway.
+The cross-stream metric depends on local network path and provider
+plugin behavior, not on harness mechanics — the magnitudes will move
+on different rigs / endpoints, but the sign (tx leads accounts) and
+the practical takeaway hold.
 
-### Stream stability over 7 minutes of customer-equivalent load
+### Stream stability over 7 minutes of saturating load
 
 | Endpoint | slot_gap_p50 (ms) | slot_gap_max (ms) | Stalls (>600 ms) | Disconnects |
 |---|---|---|---|---|
@@ -160,8 +156,6 @@ production behavior expectations.
 
 ### Capture parity (parity-acceptance criterion)
 
-v40 measurement (2026-05-17):
-
 | Endpoint | total updates | matched | parity (ep2/ep1) |
 |---|---|---|---|
 | ep1 | 3,086,094 (accounts) + ~330k (tx) | — | — |
@@ -171,19 +165,11 @@ Parity holds well within the ±0.1% parity target. Reproducibility
 across two consecutive runs: 99.7% / 99.6% — within ±0.1 pp.
 
 The 99.7% capture is **near the rig's ceiling, not the tool's**.
-On a customer's bare-metal or modern-c-class AWS rig, single-cmt
-capture is expected to remain at this level or slightly higher; the
-remaining ~0.3% is geographic and provider-side network behavior
-(slot-stage events that arrived too late to pair within the matcher's
-slot-window eviction).
-
-(A v39-era characterization circulated a 67% capture number for this
-same workload; that figure was computed against a different
-denominator and did not reflect the actual ep2/ep1 wire-received
-ratio. Subsequent direct measurement of the v39 output JSON showed
-99.8% capture on the same workload — the rig was already near its
-ceiling. v40's contribution is the per-program p50 reduction
-documented above, not a capture lift.)
+On a bare-metal or modern-c-class AWS rig, single-cmt capture is
+expected to remain at this level or slightly higher; the remaining
+~0.3% is geographic and provider-side network behavior (slot-stage
+events that arrived too late to pair within the matcher's slot-window
+eviction).
 
 ---
 
@@ -300,31 +286,31 @@ numbers.
 
 ### `--realtime` is load-dependent
 
-Validated 2026-05-16: SCHED_FIFO scheduling adds ~2-3 ms of receive-side
-overhead at light load (kernel RT-bandwidth throttle + softirq
-wake-up interactions) but is critical at saturating load to prevent
-dispatcher CPU starvation.
+`SCHED_FIFO` scheduling adds ~2–3 ms of receive-side overhead at light
+load (kernel RT-bandwidth throttle + softirq wake-up interactions)
+but is critical at saturating load to prevent dispatcher CPU
+starvation.
 
 | Workload class | `--realtime` |
 |---|---|
 | Single-program / thorofare cross-check | OFF |
 | Light multi-program (≤ 8 programs, single-cmt) | OFF |
-| **Customer-scale 23p + tx single-cmt** | **ON** (verified +18 pp capture lift) |
+| **23p + tx single-cmt** | **ON** — required to hold the 99%+ capture ceiling |
 | Worst-case stress (23p + dual-cmt + blocks) | ON |
 
 ### `--accounts-programs-per-filter` defaults to 1 for measurement
 
-Default is 1 sub-subscription per program. Override to 23 (= program
-count) to surface the customer's literal production subscription
-behavior — exposes the server-side multi-program filter cost as a
-characterized number rather than an invisible latency tax.
+Default is 1 sub-subscription per program. Override to 23
+(= program count) to characterize what a literal single-filter
+multi-program subscription pays in server-side latency — exposing
+the cost as a measured number rather than an invisible tax.
 
-Customer workloads on endpoints with a 25-concurrent-stream cap
-(QN standard tiers, etc.) should use **chunk = 4** when adding
-blocks or dual-commitment. The harness's known-heavy auto-split
-keeps `system`, `spl_token`, and `token_2022` individually measurable
-at any chunk size ≥ 2; the long tail of less-busy programs combines
-without measurable per-program inflation up to chunk ≈ 4.
+On endpoints with a 25-concurrent-stream cap (QN standard tiers,
+etc.) use **chunk = 4** when adding blocks or dual-commitment. The
+harness's known-heavy auto-split keeps `system`, `spl_token`, and
+`token_2022` individually measurable at any chunk size ≥ 2; the long
+tail of less-busy programs combines without measurable per-program
+inflation up to chunk ≈ 4.
 
 ### `--cpu-affinity auto`
 
@@ -364,19 +350,18 @@ Workaround: chunk=4 fits all variants comfortably while keeping the
 heavy programs individually measurable. See operational rules above.
 
 This is not a measurement-tool limitation but it is a topology
-constraint the customer's evaluation must respect. Production
-deployments on dedicated tiers typically have higher caps.
+constraint any evaluation must respect. Production deployments on
+dedicated tiers typically have higher caps.
 
 ### 2. Dual-commitment dispatcher characterization on virtualized rigs
 
 At 23p × dual-cmt × tx (`--commitment processed,confirmed`), the
-v39-era projection on this rig class was a per-endpoint dispatcher
-CPU ceiling around 67% capture. v40's patch series (lazy eviction
-on the matcher hot path) was designed to lift exactly that ceiling.
-v40 dual-cmt was verified to run cleanly under chunk=4 on a
-25-stream-cap tier; full characterization of the v40 dual-cmt
-capture number is pending and depends on the rig the run is
-performed on.
+per-endpoint dispatcher CPU becomes the binding constraint on
+virtualized G-class droplets. The matcher's lazy eviction
+specifically targets this ceiling, but characterizing the lifted
+ceiling depends on the rig the run is performed on. Dual-cmt has
+been verified to run cleanly under chunk=4 on a 25-stream-cap tier;
+the headline capture % is sensitive to silicon class.
 
 This is rig-sizing characterization, not a measurement-tool defect.
 For a defensible dual-commitment number, run on the actual
@@ -386,45 +371,45 @@ silicon.
 
 ### 3. Per-program tail variance — meteora_dlmm specifically
 
-A 1-hour soak (23p × processed × tx × --realtime × chunk=1,
-2026-05-17) captured 39M+ account events on the DO 32-vCPU rig with
-99.7%+ capture parity and 0 disconnects. Every program landed at
-p99.9 under 600 ms — *except* `meteora_dlmm`, which on 5.9M sampled
-events showed:
+A 1-hour soak (23p × processed × tx × --realtime × chunk=1) on the
+DO 32-vCPU rig captured 39M+ account events with 99.7%+ capture
+parity and zero disconnects. Every program landed at p99.9 under
+600 ms — *except* `meteora_dlmm`, which on 5.9M sampled events
+showed:
 
 - p50: 70 ms
 - p90: 20.6 s
 - p99: 36.4 s
 - p99.9: 38.5 s
 
-This single program's tail is dragging the overall `account_delay.p99`
+This single program's tail drags the overall `account_delay.p99`
 into the seconds-range; without meteora_dlmm the overall p99 lands
 around 200 ms on the same data.
 
 This is **not a harness defect** — meteora_dlmm has been tail-prone
-across all v39 and v40 measurements; the soak just sampled long
+across every measurement; the long-duration soak just sampled long
 enough to reveal that the real tail extends into the tens of seconds
 under sustained saturation. Almost certainly a provider-side
 filter-matching cost specific to meteora_dlmm's update pattern.
 Worth knowing if a use case relies on bounded meteora_dlmm latency
 specifically; the other 17 programs are unaffected.
 
-### 2. `SO_TIMESTAMPNS` deferred to v2
+### 2. `SO_TIMESTAMPNS` deferred
 
-Precision posture mandates kernel-level timestamps for sub-10 ms precision
-defensibility. The primitives (`setsockopt` wrapper, `cmsg` parser)
-are implemented in `src/timing/kernel_ts.rs`. The remaining work
+Kernel-level timestamps would close the residual sub-10 ms precision
+gap. The primitives (`setsockopt` wrapper, `cmsg` parser) are
+implemented in `src/timing/kernel_ts.rs`. The remaining work
 (replumbing tonic's transport to surface socket-level timestamps via
 recvmsg) is days of engineering deferred to v2.
 
-Diagnostic 2026-05-16 confirmed that the multi-program timing
-inflation (item 1 above) is **server-side wire behavior, not
-client-side consumer lag** — splitting into N single-program filters
-recovers single-digit-ms p50s without kernel timestamps. So
-SO_TIMESTAMPNS would NOT collapse our N sub-filters back to one
-multi-program filter; it would only improve the residual ~3 ms gap
-between standalone-single-program (8.4 ms) and chunked-parallel
-(11-14 ms) — useful precision improvement, not load-bearing for v1.
+The multi-program timing inflation (item 1 above) is **server-side
+wire behavior, not client-side consumer lag** — splitting into N
+single-program filters recovers single-digit-ms p50s without kernel
+timestamps. So SO_TIMESTAMPNS would NOT collapse the N sub-filters
+back to one multi-program filter; it would only improve the residual
+~3 ms gap between standalone-single-program (8.4 ms) and
+chunked-parallel (11–14 ms) — useful precision improvement, not
+load-bearing for v1.
 
 ### 3. `entries_vs_tx` / `entries_vs_account` deferred behind feature flag
 

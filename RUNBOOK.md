@@ -67,10 +67,11 @@ The repo ships three TSV files. Pick the right one for the test:
 
 ### Subscription-topology flag (`--accounts-programs-per-filter`)
 
-Added 2026-05-16 after the multi-program-filter inflation
-discovery, refined 2026-05-17 with always-isolate semantics for
-known-heavy programs. Controls how the program list is partitioned
-across accounts sub-subscriptions on the wire.
+Controls how the program list is partitioned across accounts
+sub-subscriptions on the wire. The known-heavy programs (`system`,
+`spl_token`, `token_2022`) are *always* isolated into their own
+sub-subscriptions regardless of chunk size, because they alone dominate
+any filter they share.
 
 | Value | Topology | Use case |
 |---|---|---|
@@ -288,12 +289,13 @@ target/release/grpc-bench \
   --output    results/comparison.json
 ```
 
-#### Lightest form (single-cmt + tx only, for a clean v40-baseline number)
+#### Lightest form (single-cmt + tx only, for a clean comparable baseline)
 
-This is the form that produced the published v40 baseline: 99.7%
-capture, p50 8.61 ms account / 7.99 ms tx, p99 151 ms account,
-0 disconnects on a DO 32-vCPU rig. Use it if you want a directly
-comparable number to that baseline.
+This is the form that produced the published reference baseline: 99.7%
+capture, p50 8.61 ms account / 7.99 ms tx, p99 151 ms account, zero
+disconnects on a DO 32-vCPU rig. Use it when you want a number directly
+comparable to that baseline. See [`BENCHMARK_HISTORY.md`](BENCHMARK_HISTORY.md)
+for the full reference workload and rig details.
 
 ```sh
 target/release/grpc-bench \
@@ -345,16 +347,15 @@ jq '{
 
 ### Pass criteria
 
-Numbers below are calibrated against the **v40 baseline** measured
-2026-05-17 on a DO 32-vCPU G-class rig against QN US-east + QN-EU
-dedicated endpoints. Your numbers may be tighter (faster silicon,
-bare metal, closer geographic match) or looser (more contended rig,
-intercontinental path). Use these as a sanity envelope, not absolute
-targets.
+Numbers below are calibrated against the published reference baseline
+on a DO 32-vCPU G-class rig against QN US-east + QN-EU dedicated
+endpoints. Your numbers may be tighter (faster silicon, bare metal,
+closer geographic match) or looser (more contended rig, intercontinental
+path). Use these as a sanity envelope, not absolute targets.
 
 | Field | Healthy means |
 |---|---|
-| `parity_pct` | within ±1% — capture ratio between endpoints must match () |
+| `parity_pct` | within ±1% — capture ratio between endpoints must match |
 | `slot_processed_p50` | 5–10 ms (geographic baseline) |
 | `account.p50` | **8–12 ms** at chunk=1; **9–14 ms** at chunk=4; if you see 50–3500 ms you're hitting the multi-program-filter inflation — check chunk size |
 | `account.p99` | < 200 ms at chunk=1 single-cmt; up to ~300 ms acceptable at dual-cmt |
@@ -371,19 +372,19 @@ above, then re-run with `--accounts-programs-per-filter 4`.
 
 ### On capture rates
 
-The v40 baseline on a virtualized 32-vCPU G-class rig:
+Reference baseline on a virtualized 32-vCPU G-class rig:
 
 | Workload | Capture (ep2/ep1 acc received) | Notes |
 |---|---|---|
 | 23p × processed × tx, chunk=1 | **99.7%** | reproducible across two consecutive runs; ceiling is network, not dispatcher |
-| 23p × processed,confirmed × tx, chunk=4 | verified to run cleanly under the 25-stream cap; dispatcher-load characterization pending against the v39 era projection (~67% at chunk=1, where dispatcher was the bottleneck) | |
+| 23p × processed,confirmed × tx, chunk=4 | runs cleanly under the 25-stream cap; dispatcher-load characterization pending on this rig class | |
 | 23p × processed,confirmed × tx × blocks, chunk=4 | runs cleanly; characterization pending | |
 
-On a customer's bare-metal or modern-c-class AWS rig, expect
-single-cmt to remain at 99%+ and dual-cmt to land meaningfully
-higher than the v39 era's 67% projection — v40's lazy-eviction patch
-specifically targeted the dispatcher-CPU constraint that produced
-that ceiling.
+On a bare-metal or modern-c-class AWS rig, expect single-cmt to
+remain at 99%+ and dual-cmt to land well above the dispatcher-CPU
+ceiling that constrains virtualized G-class droplets. The current
+matcher uses lazy eviction on the hot path specifically to keep
+that ceiling from binding on faster silicon.
 
 If single-cmt capture is below ~95%, something is wrong upstream
 (network, endpoint health, or rig sizing). Look at
