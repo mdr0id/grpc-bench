@@ -1,0 +1,103 @@
+[package]
+name = "grpc-bench"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+description = "Solana Yellowstone gRPC comparative benchmark harness"
+publish = false
+
+[[bin]]
+name = "grpc-bench"
+path = "src/bin/grpc-bench.rs"
+
+[lib]
+name = "grpc_bench"
+path = "src/lib.rs"
+
+[dependencies]
+# Yellowstone gRPC — versions verified via `cargo search` on the
+# implementation day. See PROTO.md for sourcing policy and currency.
+yellowstone-grpc-proto  = "~12"
+yellowstone-grpc-client = "~13"
+
+# gRPC transport. Pinned to the minor used by yellowstone-grpc-client 13.x.
+tonic = { version = "0.14", default-features = false, features = [
+    "channel",
+    "tls-native-roots",
+    "tls-ring",
+    "transport",
+    "codegen",
+] }
+
+# Async runtime. We construct the runtime manually in bin/grpc-bench.rs
+# so we can configure worker count and timer wheel (see §5 "Disable timer
+# coalescing on the runtime").
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "macros",
+    "signal",
+    "time",
+    "sync",
+    "io-util",
+    "net",
+    "fs",
+] }
+
+# Hot-path SPSC channels (§7).
+crossbeam-channel = "0.5"
+
+# Streaming quantile estimator (§6).
+tdigest = "0.2"
+
+# CLI.
+clap = { version = "4", features = ["derive", "env"] }
+
+# Serialization.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Structured logging.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Error handling.
+thiserror = "1"
+anyhow = "1"
+
+# Stream futures, used by yellowstone-grpc-client subscription streams.
+futures = "0.3"
+
+# Wall-clock formatting (RFC 3339) and basic time helpers.
+time = { version = "0.3", features = ["formatting", "macros"] }
+
+# Base58 for Solana pubkeys / signatures.
+bs58 = "0.5"
+
+# Concurrent map for cross-endpoint identity matching (§6.1).
+dashmap = "6"
+
+# Defer host-metadata gathering (§5 startup environment check).
+sysinfo = "0.31"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# CPU affinity, SCHED_FIFO, SO_TIMESTAMPNS — all Linux-only per §5.
+nix = { version = "0.31", features = ["sched", "socket", "uio", "process"] }
+# libc for clock_gettime + struct definitions used by the kernel-timestamp path.
+libc = "0.2"
+# jemalloc only on Linux. Spec §5 mandates jemalloc for production runs;
+# dev builds on macOS use the system allocator (see src/bin/grpc-bench.rs).
+tikv-jemallocator = "0.6"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = "line-tables-only"
+panic = "abort"
+strip = "debuginfo"

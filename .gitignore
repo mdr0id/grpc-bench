@@ -1,0 +1,32 @@
+# Internal-only design / strategy document. Customer-facing docs are
+# README.md, RUNBOOK.md, PRECISION.md, PROTO.md.
+spec.md
+
+# Rust build artifacts.
+/target/
+**/*.rs.bk
+
+# Run outputs. Keep the directory in tree but ignore the contents so
+# operator runs don't dirty the working tree.
+/results/*.json
+/results/*.jsonl
+!/results/.gitkeep
+
+# Editor / OS noise.
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Local secrets / overlays. Never commit tokens or per-host TOML config.
+.env
+.env.*
+*.local.toml
+
+# Local-only scratch patches accumulated during development. Anything
+# that should ship is already in tree as code or a tracked doc.
+/patches/
+
+# Claude Code workspace settings (per-developer; not project state).
+/.claude/
