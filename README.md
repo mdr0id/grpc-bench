@@ -27,8 +27,16 @@ target/release/grpc-bench \
 
 # 4. Read the headline.
 jq '{
-  p50_account_ms:  .comparative.account_delay.p50,
-  p50_tx_ms:       .comparative.transaction_delay.p50,
+  account: {
+    p50:  .comparative.account_delay.p50,
+    p99:  .comparative.account_delay.p99,
+    p99_9: .comparative.account_delay.p99_9
+  },
+  tx: {
+    p50:  .comparative.transaction_delay.p50,
+    p99:  .comparative.transaction_delay.p99,
+    p99_9: .comparative.transaction_delay.p99_9
+  },
   capture_acc_pct: ((.metadata.total_account_updates[1]
                     / .metadata.total_account_updates[0]) * 1000 | floor / 10),
   ping_ep1_ms:     .endpoints[0].avg_ping_ms,
@@ -39,11 +47,16 @@ jq '{
 }' results/quick.json
 ```
 
-A healthy run prints something like p50 ~7 ms, capture ~99%, zero
-disconnects. Compare `p50_account_ms` against `ping_delta_ms`: if the
-delta tracks the ping gap, the latency difference is geographic /
-network. If the delta is larger than the ping gap, that's plugin-side
-behavior worth investigating.
+A healthy run prints p50 ~7 ms, p99 < 200 ms, capture ~99%, zero
+disconnects. Read p50, p99, and p99.9 together — the median is what
+a typical event looks like, but the tail is what production trading
+clients actually feel. A widening gap between p50 and p99 between
+two endpoints is often a bigger finding than the p50 delta alone.
+
+Compare `account.p50` against `ping_delta_ms`: if the delta tracks
+the ping gap, the latency difference is geographic / network. If
+the delta is larger than the ping gap, that's plugin-side behavior
+worth investigating.
 
 If anything looks wrong, see
 [RUNBOOK §2 — posture check](RUNBOOK.md#2-test-1--posture-check-60-seconds)

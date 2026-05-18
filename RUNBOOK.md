@@ -334,18 +334,40 @@ jq '{
     ping_delta_ms: (.endpoints[1].avg_ping_ms - .endpoints[0].avg_ping_ms)
   },
   comparative: {
-    slot_processed_p50: .comparative.slot_status.processed_delay.p50,
-    account: { p50: .comparative.account_delay.p50,
-               matched: .comparative.account_delay.matched,
-               ep1_faster: .comparative.account_delay.ep1_faster,
-               ep2_faster: .comparative.account_delay.ep2_faster },
-    tx:      { p50: .comparative.transaction_delay.p50,
-               matched: .comparative.transaction_delay.matched },
-    block:   { p50: .comparative.block_delay.p50,
-               matched: .comparative.block_delay.matched }
+    slot_processed: {
+      p50: .comparative.slot_status.processed_delay.p50,
+      p99: .comparative.slot_status.processed_delay.p99,
+      p99_9: .comparative.slot_status.processed_delay.p99_9
+    },
+    account: {
+      p50:        .comparative.account_delay.p50,
+      p99:        .comparative.account_delay.p99,
+      p99_9:      .comparative.account_delay.p99_9,
+      matched:    .comparative.account_delay.matched,
+      ep1_faster: .comparative.account_delay.ep1_faster,
+      ep2_faster: .comparative.account_delay.ep2_faster
+    },
+    tx: {
+      p50:     .comparative.transaction_delay.p50,
+      p99:     .comparative.transaction_delay.p99,
+      p99_9:   .comparative.transaction_delay.p99_9,
+      matched: .comparative.transaction_delay.matched
+    },
+    block: {
+      p50:     .comparative.block_delay.p50,
+      p99:     .comparative.block_delay.p99,
+      p99_9:   .comparative.block_delay.p99_9,
+      matched: .comparative.block_delay.matched
+    }
   },
   per_program: (.per_program_account_delay | to_entries
-                | map({program: .key, matched: .value.matched, p50: .value.p50})
+                | map({
+                    program: .key,
+                    matched: .value.matched,
+                    p50:     .value.p50,
+                    p99:     .value.p99,
+                    p99_9:   .value.p99_9
+                  })
                 | sort_by(-.matched))
 }' "$F"
 ```
@@ -353,11 +375,19 @@ jq '{
 `baseline.ping_delta_ms` is the gRPC round-trip difference between
 the two endpoints. Interpret comparative deltas against it:
 
-- `account.p50 ≈ ping_delta_ms` → the latency gap is **geographic /
-  network**. Useful context, not a provider-quality finding.
-- `|account.p50| > |ping_delta_ms|` → the surplus is **plugin-side
-  behavior** on one of the endpoints (filter-matching cost, internal
-  queueing, slot-stage scheduling). This is the publishable finding.
+- `account.p50 ≈ ping_delta_ms` → the median latency gap is
+  **geographic / network**. Useful context, not a provider-quality
+  finding.
+- `|account.p50| > |ping_delta_ms|` → the median surplus is
+  **plugin-side behavior** on one of the endpoints (filter-matching
+  cost, internal queueing, slot-stage scheduling).
+
+Always read p50, p99, and p99.9 together. A small p50 gap with a
+large p99 gap means one endpoint has occasional tail blowouts that
+the median hides. For a trading client reacting to on-chain state,
+the p99 is what production *feels*; the p50 is what production
+*averages*. The two numbers tell different stories and both belong
+in any comparison.
 
 ### Pass criteria
 
@@ -370,13 +400,15 @@ path). Use these as a sanity envelope, not absolute targets.
 | Field | Healthy means |
 |---|---|
 | `parity_pct` | within ±1% — capture ratio between endpoints must match |
-| `slot_processed_p50` | 5–10 ms (geographic baseline) |
-| `account.p50` | **8–12 ms** at chunk=1; **9–14 ms** at chunk=4; if you see 50–3500 ms you're hitting the multi-program-filter inflation — check chunk size |
+| `slot_processed.p50` / `.p99` | 5–10 ms / < 100 ms (geographic baseline) |
+| `account.p50` | **8–12 ms** at chunk=1; **9–14 ms** at chunk=4. 50–3500 ms = multi-program-filter inflation — check chunk size |
 | `account.p99` | < 200 ms at chunk=1 single-cmt; up to ~300 ms acceptable at dual-cmt |
+| `account.p99_9` | < 600 ms for healthy programs at chunk=1. One outlier (meteora_dlmm) is known tail-prone — see [`FINDINGS.md`](FINDINGS.md) known limitations |
 | `account.matched` | within ~1% of `total_account_updates[1]` — verifies pairing rate |
-| `tx.p50` | 5–10 ms |
-| `block.p50` | < 100 ms (block payloads are heavy; tail allowed) |
-| `per_program[].p50` | every program in 7–14 ms range at chunk=1; some variance allowed (whirlpool / meteora can run 1.2× hotter; programs with <10 matched events show statistical noise) |
+| `tx.p50` / `.p99` | 5–10 ms / < 200 ms |
+| `block.p50` / `.p99` | < 100 ms / < 500 ms (block payloads are heavy; tail allowed) |
+| `per_program[].p50` | every program in 7–14 ms range at chunk=1; whirlpool / meteora can run 1.2× hotter; programs with <10 matched events show statistical noise |
+| `per_program[].p99_9` | < 600 ms for 17 of 18 programs; meteora_dlmm is a known sustained-load tail outlier (provider-side filter behavior, not a harness issue) |
 
 **Negative `p50` is a topology smell, not a code bug.** If any
 high-matched-count program shows a negative p50, you almost
