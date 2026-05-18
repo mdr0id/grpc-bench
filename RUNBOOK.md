@@ -328,6 +328,11 @@ jq '{
     parity_pct: ((.endpoints[1].total_updates - .endpoints[0].total_updates)
                  / .endpoints[0].total_updates * 100)
   },
+  baseline: {
+    ping_ep1_ms:   .endpoints[0].avg_ping_ms,
+    ping_ep2_ms:   .endpoints[1].avg_ping_ms,
+    ping_delta_ms: (.endpoints[1].avg_ping_ms - .endpoints[0].avg_ping_ms)
+  },
   comparative: {
     slot_processed_p50: .comparative.slot_status.processed_delay.p50,
     account: { p50: .comparative.account_delay.p50,
@@ -344,6 +349,15 @@ jq '{
                 | sort_by(-.matched))
 }' "$F"
 ```
+
+`baseline.ping_delta_ms` is the gRPC round-trip difference between
+the two endpoints. Interpret comparative deltas against it:
+
+- `account.p50 ≈ ping_delta_ms` → the latency gap is **geographic /
+  network**. Useful context, not a provider-quality finding.
+- `|account.p50| > |ping_delta_ms|` → the surplus is **plugin-side
+  behavior** on one of the endpoints (filter-matching cost, internal
+  queueing, slot-stage scheduling). This is the publishable finding.
 
 ### Pass criteria
 

@@ -31,13 +31,21 @@ jq '{
   p50_tx_ms:       .comparative.transaction_delay.p50,
   capture_acc_pct: ((.metadata.total_account_updates[1]
                     / .metadata.total_account_updates[0]) * 1000 | floor / 10),
+  ping_ep1_ms:     .endpoints[0].avg_ping_ms,
+  ping_ep2_ms:     .endpoints[1].avg_ping_ms,
+  ping_delta_ms:   (.endpoints[1].avg_ping_ms - .endpoints[0].avg_ping_ms),
   disconnects:     [(.stability.endpoint1.disconnects | length),
                     (.stability.endpoint2.disconnects | length)]
 }' results/quick.json
 ```
 
 A healthy run prints something like p50 ~7 ms, capture ~99%, zero
-disconnects. If anything looks wrong, see
+disconnects. Compare `p50_account_ms` against `ping_delta_ms`: if the
+delta tracks the ping gap, the latency difference is geographic /
+network. If the delta is larger than the ping gap, that's plugin-side
+behavior worth investigating.
+
+If anything looks wrong, see
 [RUNBOOK §2 — posture check](RUNBOOK.md#2-test-1--posture-check-60-seconds)
 to verify the host is configured correctly. For the full production
 workload (23 programs, `--realtime`, hour soaks), follow the
